@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCD 5x7 Icon Editor</title>
+    <style>
+        :root {
+            --bg: #232323;
+            --panel: #191919;
+            --cell: #0d0d0d;
+            --cell-hover: #414141;
+            --accent: #11a900;
+            --accent-dark: #0d8100;
+            --radius: 6px;
+            --cell-size: 28px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--accent);
+            font-family: "Courier New", Courier, monospace;
+            user-select: none;
+        }
+
+        .toolbar,
+        .output-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            margin: 10px;
+        }
+
+        .input {
+            margin: 0;
+            padding: 10px;
+            border: none;
+            border-radius: var(--radius);
+            outline: none;
+            background: var(--panel);
+            color: var(--accent);
+            font-family: "Courier New", Courier, monospace;
+            font-size: 17px;
+        }
+
+        .input.small { padding: 5px 8px; }
+        button.input { cursor: pointer; }
+        button.input:hover { background: #141414; }
+
+        #name_input { width: 100px; }
+
+        #editor_cont {
+            display: flex;
+            justify-content: center;
+            padding: 5px;
+        }
+
+        .editor-cols {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .editor-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .box {
+            position: relative;
+            width: var(--cell-size);
+            height: var(--cell-size);
+            margin: 1px;
+            cursor: pointer;
+        }
+
+        .box input {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+        }
+
+        .mark {
+            position: absolute;
+            inset: 0;
+            background: var(--cell);
+        }
+
+        .box:hover .mark { background: var(--cell-hover); }
+        .box input:checked + .mark { background: var(--accent); }
+
+        #code_out {
+            width: min(760px, calc(100vw - 90px));
+            min-height: 0;
+            overflow: hidden;
+            resize: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <input type="text" class="input small" id="name_input" value="icon" spellcheck="false" title="C variable name">
+        <button type="button" class="input small" id="clear_btn">Clear</button>
+    </div>
+
+    <div id="editor_cont"></div>
+
+    <div class="output-wrap">
+        <textarea id="code_out" class="input" rows="1" spellcheck="false" readonly></textarea>
+        <button type="button" class="input small" id="copy_btn">Copy</button>
+    </div>
+
+    <script>
+        "use strict";
+
+        const COLS = 5;
+        const ROWS = 7;
+        let lastPaintedInput = null;
+        const refs = {};
+
+        document.addEventListener("DOMContentLoaded", () => {
+            refs.name = document.getElementById("name_input");
+            refs.editor = document.getElementById("editor_cont");
+            refs.output = document.getElementById("code_out");
+
+            document.getElementById("clear_btn").addEventListener("click", clearEditor);
+            document.getElementById("copy_btn").addEventListener("click", copyOutput);
+            refs.name.addEventListener("input", updateOutput);
+            window.addEventListener("resize", resizeOutput);
+            document.addEventListener("contextmenu", event => event.preventDefault());
+            document.addEventListener("mouseup", () => { lastPaintedInput = null; });
+
+            initEditor();
+        });
+
+        function initEditor() {
+            refs.editor.replaceChildren();
+
+            const cols = document.createElement("div");
+            cols.className = "editor-cols";
+
+            for (let x = 0; x < COLS; ++x) {
+                const col = document.createElement("div");
+                col.className = "editor-col";
+
+                for (let y = 0; y < ROWS; ++y) {
+                    col.append(createPixel(x, y));
+                }
+
+                cols.append(col);
+            }
+
+            refs.editor.append(cols);
+            updateOutput();
+        }
+
+        function createPixel(x, y) {
+            const box = document.createElement("div");
+            box.className = "box";
+
+            const input = document.createElement("input");
+            input.type = "checkbox";
+            input.id = `ch_${x}_${y}`;
+            input.addEventListener("change", updateOutput);
+
+            const mark = document.createElement("span");
+            mark.className = "mark";
+            mark.addEventListener("mousedown", event => paintPixel(event, input));
+            mark.addEventListener("mouseenter", event => {
+                if (event.buttons === 1 || event.buttons === 2) paintPixel(event, input);
+            });
+            mark.addEventListener("click", event => event.preventDefault());
+            mark.addEventListener("contextmenu", event => event.preventDefault());
+
+            box.append(input, mark);
+            return box;
+        }
+
+        function paintPixel(event, input) {
+            event.preventDefault();
+            if (lastPaintedInput === input) return;
+
+            input.checked = event.buttons !== 2;
+            lastPaintedInput = input;
+            updateOutput();
+        }
+
+        function clearEditor() {
+            document.querySelectorAll(".box input").forEach(input => { input.checked = false; });
+            updateOutput();
+        }
+
+        function readBitmap() {
+            const bytes = [];
+
+            for (let x = 0; x < COLS; ++x) {
+                let value = 0;
+
+                for (let y = 0; y < ROWS; ++y) {
+                    const input = document.getElementById(`ch_${x}_${y}`);
+                    if (input.checked) value |= 1 << y;
+                }
+
+                bytes.push(value);
+            }
+
+            return bytes;
+        }
+
+        function updateOutput() {
+            const name = normalizeIdentifier(refs.name.value, "icon");
+            const bytes = readBitmap().map(value => `0x${value.toString(16).padStart(2, "0")}`);
+            refs.output.value = `const uint8_t ${name}[5] = {${bytes.join(", ")}};`;
+            resizeOutput();
+        }
+
+        function normalizeIdentifier(value, fallback) {
+            let identifier = value.trim().replace(/[^a-zA-Z0-9_]/g, "_");
+            if (!identifier) identifier = fallback;
+            if (/^[0-9]/.test(identifier)) identifier = `_${identifier}`;
+            return identifier;
+        }
+
+        function resizeOutput() {
+            refs.output.style.height = "auto";
+            refs.output.style.height = `${refs.output.scrollHeight}px`;
+        }
+
+        async function copyOutput() {
+            await navigator.clipboard.writeText(refs.output.value);
+        }
+    </script>
+</body>
+</html>

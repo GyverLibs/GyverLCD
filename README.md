@@ -1,0 +1,299 @@
+[![latest](https://img.shields.io/github/v/release/GyverLibs/GyverLCD.svg?color=brightgreen)](https://github.com/GyverLibs/GyverLCD/releases/latest/download/GyverLCD.zip)
+[![PIO](https://badges.registry.platformio.org/packages/gyverlibs/library/GyverLCD.svg)](https://registry.platformio.org/libraries/gyverlibs/GyverLCD)
+[![Foo](https://img.shields.io/badge/Website-AlexGyver.ru-blue.svg?style=flat-square)](https://alexgyver.ru/)
+[![Foo](https://img.shields.io/badge/%E2%82%BD%24%E2%82%AC%20%D0%9F%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B0-orange.svg?style=flat-square)](https://alexgyver.ru/support_alex/)
+[![Foo](https://img.shields.io/badge/README-ENGLISH-blueviolet.svg?style=flat-square)](https://github-com.translate.goog/GyverLibs/GyverLCD?_x_tr_sl=ru&_x_tr_tl=en)  
+
+[![Foo](https://img.shields.io/badge/%D0%9F%D0%9E%D0%94%D0%9F%D0%98%D0%A1%D0%90%D0%A2%D0%AC%D0%A1%D0%AF-%D0%9D%D0%90%20%D0%9E%D0%91%D0%9D%D0%9E%D0%92%D0%9B%D0%95%D0%9D%D0%98%D0%AF-brightgreen.svg?style=social&logo=telegram&color=blue)](https://t.me/GyverLibs)
+
+# GyverLCD
+Библиотека для символьных HD44780-совместимых LCD дисплеев с I2C backpack на PCF8574/PCF8574A/PCA8574(A)
+
+- Легче и быстрее "классических" библиотек для LCD, хорошо оптимизированы тайминги
+- Поддержка работы с внешним Arduino Wire-like интерфейсом (для программной или своей реализации I2C)
+- Строгое и понятное поведение курсора - переход на следующую строку, перенос по \n, зацикленный вывод
+- Богатый и удобный API по сравнению с классикой
+- Версия с программной поддержкой кастомных UTF-8 символов, встроенная таблица для кириллицы (RU+BY+UKR) - сильно легче аналогов
+- Поддержка нескольких стандартных распиновок китайских модулей
+
+## Инициализация
+### Обычный Wire
+Полная версия с Arduino `Print`:
+```cpp
+#include <GyverLCD.h>
+GyverLCD lcd(0x27, 16, 2);
+```
+
+Лёгкое ядро без Arduino `Print`:
+```cpp
+#include <GyverLCD.h>
+GyverLCD_CORE lcd(0x27, 16, 2);
+```
+
+### Внешний Wire-like интерфейс
+Полная версия с Arduino `Print`:
+```cpp
+#include <GyverLCD_EXT.h>
+GyverLCD_EXT<MyWire> lcd(wire, 0x27, 16, 2);
+```
+
+Лёгкое ядро без Arduino `Print`:
+```cpp
+#include <GyverLCD_CORE.h>
+GyverLCD_CORE_EXT<MyWire> lcd(wire, 0x27, 16, 2);
+```
+
+### UTF-8
+Стандартный `Wire` + Arduino `Print` + программные глифы RU/BY/UKR:
+```cpp
+#include <GyverLCD_UTF8.h>
+GyverLCD_UTF8 lcd(0x27, 16, 2);
+```
+
+Внешний Wire-like интерфейс:
+```cpp
+#include <GyverLCD_UTF8.h>
+GyverLCD_UTF8_EXT<MyWire> lcd(wire, 0x27, 16, 2);
+```
+
+Если нужен UTF-8 без Arduino `Print`, слой можно собрать напрямую поверх ядра:
+```cpp
+GyverLCD_UTF8_BASE<GyverLCD_CORE> lcd(0x27, 16, 2);
+GyverLCD_UTF8_BASE<GyverLCD_CORE_EXT<MyWire>> lcd(wire, 0x27, 16, 2);
+```
+
+`GyverLCD` и `GyverLCD_EXT` наследуют Arduino `Print`: доступны `print()`, `println()`, числовые форматы и остальные стандартные методы. `GyverLCD_CORE` и `GyverLCD_CORE_EXT` содержат только LCD API и лёгкие `write()` без виртуального `Print`.
+
+Библиотека не вызывает `Wire.begin()` и не меняет настройки I2C.
+
+## API
+```cpp
+bool begin();                                             // инициализировать дисплей
+void setBusClock(uint32_t hz);                            // сообщить фактическую частоту I2C
+
+uint8_t address() const;                                  // I2C адрес
+uint8_t cols() const;                                     // количество колонок
+uint8_t rows() const;                                     // количество строк
+void setRowOffsets(uint8_t row0, uint8_t row1, uint8_t row2 = 0, uint8_t row3 = 0); // DDRAM адреса строк
+
+void clear();                                             // очистить дисплей
+void home();                                              // вернуть курсор в начало
+void setCursor(uint8_t col, uint8_t row);                 // установить курсор
+void setCursorCol(uint8_t col);                           // установить колонку
+void setCursorRow(uint8_t row);                           // установить строку
+uint8_t cursorCol() const;                                // текущая колонка
+uint8_t cursorRow() const;                                // текущая строка или 0xFF
+void newLine();                                           // перейти в начало следующей строки
+void clearLine();                                         // очистить текущую строку и перейти в её начало
+void clearEnd();                                          // очистить до конца строки и вернуть курсор
+
+size_t write(uint8_t value);                              // вывести байт
+size_t write(int value);                                  // вывести int как байт, позволяет write(0)
+size_t write(const uint8_t* data, size_t length);         // вывести буфер байт
+size_t write(const char* data, size_t length);            // вывести строковый буфер
+size_t write(const char* str);                            // вывести строку до \0
+// GyverLCD и GyverLCD_EXT также наследуют Arduino Print: print(), println() и т.д.
+
+void setTextWrap(bool enabled);                           // переносить при переполнении строки
+bool isTextWrap() const;                                  // состояние переноса
+void setTextLoop(bool enabled);                           // после последней строки переходить на первую
+bool isTextLoop() const;                                  // состояние кольцевого перехода
+
+void setDisplay(bool enabled);                            // включить/выключить отображение
+bool isDisplay() const;                                   // состояние отображения
+void setCursorVisible(bool enabled);                      // показать/скрыть курсор
+bool isCursorVisible() const;                             // видимость курсора
+void setBlink(bool enabled);                              // включить/выключить мигание
+bool isBlink() const;                                     // состояние мигания
+
+void leftToRight();                                       // направление адреса слева направо
+void rightToLeft();                                       // направление адреса справа налево
+bool isLeftToRight() const;                               // текущее направление
+void setAutoscroll(bool enabled);                         // автоматический сдвиг дисплея
+bool isAutoscroll() const;                                // состояние автосдвига
+void scrollDisplayLeft();                                 // сдвинуть изображение влево
+void scrollDisplayRight();                                // сдвинуть изображение вправо
+
+void setBacklight(bool enabled);                          // включить/выключить подсветку
+bool isBacklight() const;                                 // состояние подсветки
+
+void createChar(uint8_t index, const uint8_t bitmap[8]);       // символ из 8 строк по 5 бит
+void createChar_P(uint8_t index, const uint8_t bitmap[8]);     // PROGMEM версия
+void createCharCols(uint8_t index, const uint8_t bitmap[5]);   // символ из 5 колонок по 8 бит
+void createCharCols_P(uint8_t index, const uint8_t bitmap[5]); // PROGMEM версия
+
+void command(uint8_t value);                              // низкоуровневая команда HD44780
+
+// дополнительно в UTF-8 версии
+void resetUTF8();                                         // сбросить декодер и кеш глифов
+void resetGlyphs();                                       // сбросить кеш CGRAM
+void setGlyphSlots(uint8_t slots);                        // выделить UTF-8 0..8 слотов CGRAM
+uint8_t glyphSlots() const;                               // количество слотов UTF-8
+```
+
+`GyverLCD_CORE` и `GyverLCD_CORE_EXT` имеют тот же LCD API, но не наследуют Arduino `Print`. `GyverLCD_UTF8_BASE<LCD>` добавляет UTF-8 декодер и кеш CGRAM поверх любого совместимого core-класса.
+
+## Работа
+### Текст и строки
+- `\n` переводит курсор в начало следующей визуальной строки, `\r` игнорируется
+- `setTextWrap(true)` переносит текст на следующую визуальную строку при переполнении, при `false` лишние символы отбрасываются
+- `setTextLoop(true)` разрешает переход с последней строки на первую и для `\n`, и для автоматического переноса
+- Перенос идёт по визуальным строкам, а не по естественному ходу DDRAM
+- `clearLine()` очищает текущую строку и ставит курсор в её начало
+- `clearEnd()` очищает от текущей позиции до конца и возвращает курсор
+
+### Кастомные символы
+У дисплея есть 8 ячеек под кастомные символы. Для вывода своих символов их нужно загрузить в нужную ячейку и вызвать `write(номер)`. В классических библиотеках формат кастомного символа - 8 байт, представляют собой строки с пикселями сверху вниз. В данной библиотеке используется также более компактный вариант - 5 байт, столбцы пикселей слева направо. Общий механизм такой:
+
+```cpp
+uint8_t iconRows[8] = {
+    0b00100,
+    0b01010,
+    0b10001,
+    0b10001,
+    0b10001,
+    0b01010,
+    0b00100,
+    0b00000,
+};
+lcd.createChar(0, iconRows);
+
+uint8_t iconCols[5] = {
+    0b00011100,
+    0b00100010,
+    0b01000001,
+    0b00100010,
+    0b00011100,
+};
+lcd.createCharCols(1, iconCols);
+
+// вывод
+lcd.write(0);
+lcd.write(1);
+```
+
+`createChar` именно загружает данные в память дисплея, т.е. библиотека не хранит ни данный массив, ни указатель на него.
+
+## Настройка
+### UTF-8
+UTF-8 слой декодирует однобайтовые и двухбайтовые символы, использует похожие символы CGROM и при необходимости загружает глифы в CGRAM. По умолчанию доступны все 8 слотов. Количество слотов определяет, сколько уникальных UTF-8 символов, не совпадающих с английскими, может находиться на дисплее одновременно. У дисплея всего 8 ячеек под такие символы, по умолчанию используются все.
+
+```cpp
+lcd.setGlyphSlots(6);    // UTF-8 использует 0..5, слоты 6..7 свободны для createChar
+lcd.print("Привет 23°C");
+```
+
+Если занятые UTF-8 слоты меняются вручную через `createChar()`, после этого нужно вызвать `resetGlyphs()`.
+
+### Pin map
+Настройка распиновки находится во внутреннем файле `lcdpins.h`. Все define задаются **до** подключения заголовка GyverLCD.
+
+По умолчанию используется распространённая разводка:
+```text
+P0 RS
+P1 RW
+P2 EN
+P3 BL
+P4 D4
+P5 D5
+P6 D6
+P7 D7
+```
+
+Готовый вариант:
+```cpp
+#define GLCD_MAP_MJKDZ
+#include <GyverLCD.h>
+```
+
+Доступны `GLCD_MAP_LCM1602`, `GLCD_MAP_MJKDZ`, `GLCD_MAP_LCDXIO`.
+
+Для своей разводки:
+```cpp
+#define GLCD_PIN_RS 6
+#define GLCD_PIN_RW 5
+#define GLCD_PIN_EN 4
+#define GLCD_PIN_BL 7
+#define GLCD_PIN_D4 0
+#define GLCD_PIN_D5 1
+#define GLCD_PIN_D6 2
+#define GLCD_PIN_D7 3
+#define GLCD_BL_ACTIVE_HIGH 0
+#include <GyverLCD.h>
+```
+
+Если подсветка не подключена к expander:
+```cpp
+#define GLCD_PIN_BL GLCD_NO_PIN
+```
+
+### Тайминги
+По умолчанию используются безопасные задержки: 45 мкс для обычной команды и 2000 мкс для `clear/home`.
+
+```cpp
+#define GLCD_FAST
+#include <GyverLCD.h>
+```
+
+Свои значения:
+```cpp
+#define GLCD_COMMAND_US 50
+#define GLCD_CLEAR_US 2200
+#include <GyverLCD.h>
+```
+
+`setBusClock(hz)` только сообщает фактическую частоту I2C:
+```cpp
+Wire.setClock(400000);
+lcd.setBusClock(400000);
+```
+
+## Пример
+```cpp
+#include <GyverLCD.h>
+
+GyverLCD lcd(0x27, 16, 2);
+
+void setup() {
+    Wire.begin();
+    lcd.begin();
+    lcd.print("Hello, World!");
+}
+
+void loop() {
+}
+```
+
+<a id="install"></a>
+
+## Установка
+- Библиотеку можно найти по названию **GyverLCD** и установить через менеджер библиотек в:
+    - Arduino IDE
+    - Arduino IDE v2
+    - PlatformIO
+- [Скачать библиотеку](https://github.com/GyverLibs/GyverLCD/archive/refs/heads/main.zip) .zip архивом для ручной установки:
+    - Распаковать и положить в *C:\Program Files (x86)\Arduino\libraries* (Windows x64)
+    - Распаковать и положить в *C:\Program Files\Arduino\libraries* (Windows x32)
+    - Распаковать и положить в *Документы/Arduino/libraries/*
+    - (Arduino IDE) автоматическая установка из .zip: *Скетч/Подключить библиотеку/Добавить .ZIP библиотеку…* и указать скачанный архив
+- Читай более подробную инструкцию по установке библиотек [здесь](https://alexgyver.ru/arduino-first/#%D0%A3%D1%81%D1%82%D0%B0%D0%BD%D0%BE%D0%B2%D0%BA%D0%B0_%D0%B1%D0%B8%D0%B1%D0%BB%D0%B8%D0%BE%D1%82%D0%B5%D0%BA)
+
+### Обновление
+- Рекомендую всегда обновлять библиотеку: в новых версиях исправляются ошибки и баги, а также проводится оптимизация и добавляются новые фичи
+- Через менеджер библиотек IDE: найти библиотеку как при установке и нажать "Обновить"
+- Вручную: **удалить папку со старой версией**, а затем положить на её место новую. "Замену" делать нельзя: иногда в новых версиях удаляются файлы, которые останутся при замене и могут привести к ошибкам!
+
+<a id="feedback"></a>
+
+## Баги и обратная связь
+При нахождении багов создавайте **Issue**, а лучше сразу пишите на почту [alex@alexgyver.ru](mailto:alex@alexgyver.ru)  
+Библиотека открыта для доработки и ваших **Pull Request**'ов!
+
+При сообщении о багах или некорректной работе библиотеки нужно обязательно указывать:
+- Версия библиотеки
+- Какой используется МК
+- Версия SDK (для ESP)
+- Версия Arduino IDE
+- Корректно ли работают ли встроенные примеры, в которых используются функции и конструкции, приводящие к багу в вашем коде
+- Какой код загружался, какая работа от него ожидалась и как он работает в реальности
+- В идеале приложить минимальный код, в котором наблюдается баг. Не полотно из тысячи строк, а минимальный код
