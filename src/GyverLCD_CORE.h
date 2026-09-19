@@ -107,6 +107,16 @@ class GyverLCD_CORE_EXT {
         if (_cursorRow != UNKNOWN_ROW) setCursor(_cursorCol, row);
     }
 
+    // текущая колонка курсора
+    uint8_t cursorCol() const {
+        return _cursorCol;
+    }
+
+    // текущая строка курсора (или 0xff, если неизвестна)
+    uint8_t cursorRow() const {
+        return _cursorRow;
+    }
+
     // перевести курсор в начало следующей строки, при text loop последняя строка переходит в первую
     void newLine() {
         if (_cursorRow == UNKNOWN_ROW) return;
@@ -124,16 +134,6 @@ class GyverLCD_CORE_EXT {
     // очистить текущую строку от позиции курсора до конца, курсор оставить где был
     void clearEnd() {
         _clearLine(_cursorCol, false);
-    }
-
-    // текущая колонка курсора
-    uint8_t cursorCol() const {
-        return _cursorCol;
-    }
-
-    // текущая строка курсора (или 0xff, если неизвестна)
-    uint8_t cursorRow() const {
-        return _cursorRow;
     }
 
     // автоматический перенос на следующую строку при переполнении
