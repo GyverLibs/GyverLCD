@@ -26,7 +26,7 @@ class GyverLCD_CORE_EXT {
 
         // переводим expander в безопасное состояние до инициализации дисплея
         _writePort(_base(false));
-        delay(50);
+        delay(60);
 
         // приводим LCD в известное состояние + в 4-битный режим
         _initNibble(0x03);
@@ -46,6 +46,11 @@ class GyverLCD_CORE_EXT {
         waitReady();
         _setFlag(Begun, true);
         return true;
+    }
+
+    // для совместимости с классической либой
+    bool init() __attribute__((deprecated("Use begin() instead"))) {
+        return begin();
     }
 
     // сообщить частоту I2C для оптимизации задержек, настройки самой шины не меняет
@@ -277,6 +282,11 @@ class GyverLCD_CORE_EXT {
         if (_flag(Begun)) _writePort(_base(false));
     }
 
+    // для совместимости с классической либой
+    void backlight() __attribute__((deprecated("Use setBacklight(true) instead"))) {
+        setBacklight(true);
+    }
+
     // состояние подсветки
     bool isBacklight() const {
         return _flag(Backlight);
@@ -292,6 +302,9 @@ class GyverLCD_CORE_EXT {
         if (_cursorRow != UNKNOWN_ROW) {
             _command(GLCD_SET_DDRAM_ADDR | (_rowOffsets[_cursorRow] + _cursorCol));
         }
+    }
+    void createChar(uint8_t index, const char bitmap[8]) {
+        createChar(index, (const uint8_t*)bitmap);
     }
 
     // progmem версия
