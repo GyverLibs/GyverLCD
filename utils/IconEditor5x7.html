@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,7 +17,9 @@
             --cell-size: 28px;
         }
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -32,7 +35,19 @@
             justify-content: center;
             align-items: center;
             gap: 5px;
-            margin: 10px;
+            margin: 5px 10px;
+        }
+
+        .outputs {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 2px 0;
         }
 
         .input {
@@ -47,16 +62,26 @@
             font-size: 17px;
         }
 
-        .input.small { padding: 5px 8px; }
-        button.input { cursor: pointer; }
-        button.input:hover { background: #141414; }
+        .input.small {
+            padding: 5px 8px;
+        }
 
-        #name_input { width: 100px; }
+        button.input {
+            cursor: pointer;
+        }
+
+        button.input:hover {
+            background: #141414;
+        }
+
+        #name_input {
+            width: 100px;
+        }
 
         #editor_cont {
             display: flex;
             justify-content: center;
-            padding: 5px;
+            padding: 2px 5px;
         }
 
         .editor-cols {
@@ -90,17 +115,27 @@
             background: var(--cell);
         }
 
-        .box:hover .mark { background: var(--cell-hover); }
-        .box input:checked + .mark { background: var(--accent); }
+        .box:hover .mark {
+            background: var(--cell-hover);
+        }
 
-        #code_out {
-            width: min(760px, calc(100vw - 90px));
+        .box input:checked+.mark {
+            background: var(--accent);
+        }
+
+        .code-out {
+            width: min(800px, calc(100vw - 90px));
             min-height: 0;
             overflow: hidden;
             resize: none;
         }
+
+        .output-wrap button {
+            align-self: stretch;
+        }
     </style>
 </head>
+
 <body>
     <div class="toolbar">
         <input type="text" class="input small" id="name_input" value="icon" spellcheck="false" title="C variable name">
@@ -109,9 +144,27 @@
 
     <div id="editor_cont"></div>
 
-    <div class="output-wrap">
-        <textarea id="code_out" class="input" rows="1" spellcheck="false" readonly></textarea>
-        <button type="button" class="input small" id="copy_btn">Copy</button>
+    <div class="outputs">
+        <div class="output-block">
+            <div class="output-wrap">
+                <textarea id="code_rows" class="input code-out" rows="1" spellcheck="false" readonly></textarea>
+                <button type="button" class="input small" data-copy="code_rows">Copy</button>
+            </div>
+        </div>
+
+        <div class="output-block">
+            <div class="output-wrap">
+                <textarea id="code_rows_array" class="input code-out" rows="1" spellcheck="false" readonly></textarea>
+                <button type="button" class="input small" data-copy="code_rows_array">Copy</button>
+            </div>
+        </div>
+
+        <div class="output-block">
+            <div class="output-wrap">
+                <textarea id="code_cols" class="input code-out" rows="1" spellcheck="false" readonly></textarea>
+                <button type="button" class="input small" data-copy="code_cols">Copy</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -119,16 +172,23 @@
 
         const COLS = 5;
         const ROWS = 7;
-        let lastPaintedInput = null;
         const refs = {};
+        const pixels = [];
+        let lastPaintedInput = null;
 
         document.addEventListener("DOMContentLoaded", () => {
             refs.name = document.getElementById("name_input");
             refs.editor = document.getElementById("editor_cont");
-            refs.output = document.getElementById("code_out");
+            refs.outputs = [
+                document.getElementById("code_rows"),
+                document.getElementById("code_rows_array"),
+                document.getElementById("code_cols"),
+            ];
 
             document.getElementById("clear_btn").addEventListener("click", clearEditor);
-            document.getElementById("copy_btn").addEventListener("click", copyOutput);
+            document.querySelectorAll("[data-copy]").forEach(button => {
+                button.addEventListener("click", () => copyOutput(button.dataset.copy));
+            });
             refs.name.addEventListener("input", updateOutput);
             window.addEventListener("resize", resizeOutput);
             document.addEventListener("contextmenu", event => event.preventDefault());
@@ -138,19 +198,19 @@
         });
 
         function initEditor() {
-            refs.editor.replaceChildren();
-
             const cols = document.createElement("div");
             cols.className = "editor-cols";
 
             for (let x = 0; x < COLS; ++x) {
                 const col = document.createElement("div");
                 col.className = "editor-col";
+                pixels[x] = [];
 
                 for (let y = 0; y < ROWS; ++y) {
-                    col.append(createPixel(x, y));
+                    const input = createPixel();
+                    pixels[x][y] = input;
+                    col.append(input.parentElement);
                 }
-
                 cols.append(col);
             }
 
@@ -158,26 +218,23 @@
             updateOutput();
         }
 
-        function createPixel(x, y) {
+        function createPixel() {
             const box = document.createElement("div");
             box.className = "box";
 
             const input = document.createElement("input");
             input.type = "checkbox";
-            input.id = `ch_${x}_${y}`;
             input.addEventListener("change", updateOutput);
 
             const mark = document.createElement("span");
             mark.className = "mark";
             mark.addEventListener("mousedown", event => paintPixel(event, input));
             mark.addEventListener("mouseenter", event => {
-                if (event.buttons === 1 || event.buttons === 2) paintPixel(event, input);
+                if (event.buttons & 3) paintPixel(event, input);
             });
-            mark.addEventListener("click", event => event.preventDefault());
-            mark.addEventListener("contextmenu", event => event.preventDefault());
 
             box.append(input, mark);
-            return box;
+            return input;
         }
 
         function paintPixel(event, input) {
@@ -190,49 +247,60 @@
         }
 
         function clearEditor() {
-            document.querySelectorAll(".box input").forEach(input => { input.checked = false; });
+            pixels.flat().forEach(input => { input.checked = false; });
             updateOutput();
         }
 
         function readBitmap() {
-            const bytes = [];
+            const cols = Array(COLS).fill(0);
+            const rows = Array(8).fill(0);
 
             for (let x = 0; x < COLS; ++x) {
-                let value = 0;
-
                 for (let y = 0; y < ROWS; ++y) {
-                    const input = document.getElementById(`ch_${x}_${y}`);
-                    if (input.checked) value |= 1 << y;
+                    if (!pixels[x][y].checked) continue;
+                    cols[x] |= 1 << y;
+                    rows[y] |= 1 << (COLS - 1 - x);
                 }
-
-                bytes.push(value);
             }
+            return { cols, rows };
+        }
 
-            return bytes;
+        function formatBytes(bytes) {
+            return bytes.map(value => `0x${value.toString(16).padStart(2, "0")}`).join(", ");
+        }
+
+        function rowsToUint64(rows) {
+            let value = 0n;
+            rows.forEach((row, i) => { value |= BigInt(row) << BigInt(i * 8); });
+            return `0x${value.toString(16)}`;
         }
 
         function updateOutput() {
             const name = normalizeIdentifier(refs.name.value, "icon");
-            const bytes = readBitmap().map(value => `0x${value.toString(16).padStart(2, "0")}`);
-            refs.output.value = `const uint8_t ${name}[5] = {${bytes.join(", ")}};`;
+            const { cols, rows } = readBitmap();
+
+            refs.outputs[0].value = `const uint64_t ${name} = ${rowsToUint64(rows)};`;
+            refs.outputs[1].value = `const uint8_t ${name}[8] = {${formatBytes(rows)}};`;
+            refs.outputs[2].value = `const uint8_t ${name}[5] = {${formatBytes(cols)}};`;
             resizeOutput();
         }
 
         function normalizeIdentifier(value, fallback) {
-            let identifier = value.trim().replace(/[^a-zA-Z0-9_]/g, "_");
-            if (!identifier) identifier = fallback;
-            if (/^[0-9]/.test(identifier)) identifier = `_${identifier}`;
-            return identifier;
+            let identifier = value.trim().replace(/[^a-zA-Z0-9_]/g, "_") || fallback;
+            return /^[0-9]/.test(identifier) ? `_${identifier}` : identifier;
         }
 
         function resizeOutput() {
-            refs.output.style.height = "auto";
-            refs.output.style.height = `${refs.output.scrollHeight}px`;
+            refs.outputs.forEach(output => {
+                output.style.height = "auto";
+                output.style.height = `${output.scrollHeight}px`;
+            });
         }
 
-        async function copyOutput() {
-            await navigator.clipboard.writeText(refs.output.value);
+        function copyOutput(id) {
+            navigator.clipboard.writeText(document.getElementById(id).value);
         }
     </script>
 </body>
+
 </html>

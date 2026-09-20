@@ -306,6 +306,9 @@ class GyverLCD_CORE_EXT {
     void createChar(uint8_t index, const char bitmap[8]) {
         createChar(index, (const uint8_t*)bitmap);
     }
+    void createChar(uint8_t index, const uint64_t bitmap) {
+        createChar(index, (const uint8_t*)&bitmap);
+    }
 
     // progmem версия
     void createChar_P(uint8_t index, const uint8_t bitmapP[8]) {
