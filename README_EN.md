@@ -15,7 +15,9 @@ Library for HD44780-compatible LCD displays with I2C backpack on PCF8574/PCF8574
 - Support for external Arduino Wire-like interface (for software or I2C implementation)
 - Strict and understandable cursor behavior - transition to the next line, transfer by \n, looped output
 - A rich and convenient API compared to the classics
-- Version with software support for custom UTF-8 characters, built-in table for Cyrillic (RU+BY+UKR) - much lighter than analogues
+- Support for displays with hardware Cyrillic and other languages
+- Software support for custom UTF-8 characters, built-in table for Cyrillic (RU+BY+UKR) - much easier than analogues
+- Compact mode of creating custom symbols + icon editor application
 - Support for several standard Chinese modules
 
 ## Initialization
@@ -46,7 +48,7 @@ GyverLCD_CORE_EXT<MyWire> lcd(wire, 0x27, 16, 2);
 ```
 
 ### UTF-8
-Standard.`Wire` + Arduino `Print`+ software glyphs RU/BY/UKR:
+Standard.`Wire` + Arduino `Print`:
 ```cpp
 #include <GyverLCD_UTF8.h>
 GyverLCD_UTF8 lcd(0x27, 16, 2);
@@ -64,9 +66,7 @@ GyverLCD_UTF8_BASE<GyverLCD_CORE> lcd(0x27, 16, 2);
 GyverLCD_UTF8_BASE<GyverLCD_CORE_EXT<MyWire>> lcd(wire, 0x27, 16, 2);
 ```
 
-`GyverLCD`and`GyverLCD_EXT`inherit the Arduino`Print`: available`print()`, `println()`numerical formats and other standard methods.`GyverLCD_CORE`and`GyverLCD_CORE_EXT`Contain only LCD API and lightweight`write()`virtual`Print`.
-
-Library doesn't call`Wire.begin()`It does not change the I2C settings.
+`GyverLCD`and`GyverLCD_EXT`inherit the Arduino`Print`: available`print()`, `println()`numerical formats and other standard methods.`GyverLCD_CORE`and`GyverLCD_CORE_EXT`Contain only LCD API and lightweight`write()`virtual`Print`. Library doesn't call`Wire.begin()`It does not change the I2C settings.
 
 ## API
 ```cpp
@@ -119,6 +119,7 @@ void scrollDisplayRight();                                // rightward
 void setBacklight(bool enabled);                          // light up
 bool isBacklight() const;                                 // background
 
+void createChar(uint8_t index, uint64_t bitmap);               // symbol
 void createChar(uint8_t index, const uint8_t bitmap[8]);       // symbol
 void createChar_P(uint8_t index, const uint8_t bitmap[8]);     // PROGMEM version
 void createCharCols(uint8_t index, const uint8_t bitmap[5]);   // symbol
@@ -133,66 +134,85 @@ void setGlyphSlots(uint8_t slots);                        // UTF-8 0.8 CGRAM slo
 uint8_t glyphSlots() const;                               // number of UTF-8 slots
 ```
 
-`GyverLCD_CORE`and`GyverLCD_CORE_EXT`They have the same LCD API but do not inherit Arduino.`Print`. `GyverLCD_UTF8_BASE<LCD>`Adds a UTF-8 decoder and CGRAM cache over any compatible core class.
-
 ## Work.
 ### Text and lines
 - `\n`Translate the cursor to the beginning of the next visual line,`\r`ignored
 - `setTextWrap(true)`transfers the text to the next visual line when overflowing,`false`redundancy
 - `setTextLoop(true)`allows the transition from the last line to the first and`\n`and for automatic transfer
-- The transfer is on the visual lines, not the natural course of DDRAM.
+- The transfer goes through the visual strings, not the natural course of the DDRAM display (there may be alternation).
 - `clearLine()`Clears the current line and puts the cursor at the beginning.
-- `clearEnd()`Clears the current position to the end and returns the cursor
+- `clearEnd()`Clears the current position to the end and returns the cursor back
 
-### Castomy symbols
-The display has 8 cells under custom symbols. To display their symbols, they must be loaded into the desired cell and called`write(номер)`. In classical libraries, the format of the custom symbol is 8 bytes, are strings with pixels from top to bottom, loaded through`createChar`(for compatibility with the classics).
+### Your symbols and icons
+The display has 8 cells under custom symbols. To output your symbol, it must be loaded once into the desired cell and called`write(номер ячейки)`. After output, the symbol remains in memory, i.e. you do not need to load it every time. Cells can be overwritten with other characters, but the display is immediately updated, i.e. if the symbol under the number N is displayed on the display, and then another symbol was loaded into the same cell - the old symbol will change to a new one. Cells are reset when the display is rebooted and reinitialized.
 
-This library also uses a more compact version - 5 bytes, columns of pixels from left to right, loaded through`createCharCols`. The general mechanism is as follows:
+Several formats and functions are used to load the symbol:
 
 ```cpp
-// classic, lines
-uint8_t iconRows[8] = {
-    0b00100,
-    0b01010,
-    0b10001,
-    0b10001,
-    0b10001,
-    0b01010,
-    0b00100,
-    0b00000,
-};
-lcd.createChar(0, iconRows);
+// 1. classic version - 8 bytes in rows (compatible with other libraries)
+const uint8_t smile[8] = {0x00, 0x0a, 0x0a, 0x00, 0x11, 0x0e, 0x00, 0x00};
+lcd.createChar(0, smile);   // zero-load
+lcd.write(0);               // conclusion
+lcd.write(0);               // conclusion
 
-// compact
-uint8_t iconCols[5] = {
-    0b00011100,
-    0b00100010,
-    0b01000001,
-    0b00100010,
-    0b00011100,
-};
-lcd.createCharCols(1, iconCols);
+// 2. the lightest option - 8 bytes in rows, packed in 64 bits
+lcd.createChar(1, 0x40a110a0400);   // loading
+lcd.write(1);                       // conclusion
 
-// conclusion
-lcd.write(0);
-lcd.write(1);
+// can be stored and used by name
+// const uint64_t square = 0x40a110a0400;
+// lcd.createChar(1, square);
+
+// 3. compact version - 5 bytes in columns (convenient for storage in font tables)
+const uint8_t spiral[5] = {0x7d, 0x45, 0x5d, 0x41, 0x7f};
+lcd.createCharCols(2, spiral);
+lcd.write(2);
 ```
 
-`createChar`It loads data into the display memory, i.e. the library does not store either this array or a pointer to it.
+It is recommended to use the version with 64-bit code, because it is optimized by the compiler and does not take up space in RAM!
 
-The library in the utils folder has a built-in utility for generating icons for custom symbols.
+> [!TIP]
+> In the library in the utils folder there is a built-in utility for generating custom symbols with output in all formats
 
-## Setting up
 ### UTF-8
-The UTF-8 layer decodes single-byte and two-byte characters, uses similar CGROM symbols, and loads glyphs into CGRAM if necessary. By default, all 8 slots are available. The number of slots determines how many unique UTF-8 characters that do not match English can be on the display at the same time. When used above the current limit, the oldest characters will be overwritten. The display has only 8 cells for such symbols, all are used by default.
+The library decodes 1- and 2-byte UTF-8 characters from ordinary rows and supports the output of Cyrillic and other languages, there are 2 mechanisms and table types for this:
+
+- * Hardware support**: The display has its own character table, usually ASCII + sets for different language groups, for example, there are displays with hardware support for Cyrillic. In the library in the type table`RomGlyph`You can set a match between the symbol and its code in the display table. Thus, the library can hardware display characters similar in writing to English, as well as symbols from the display table.
+- **Programme support**: type table`BitmapGlyph`You can set bitmaps for your character set. The library will automatically download them through`createChar`for all new unique symbols sent to print
+- The format and examples of tables can be viewed in the glyphs file. h h
+
+This allows you to print in any language through a single printing mechanism.`print("строка")`but with some limitations. Both mechanisms work simultaneously, so for example, both tables are used for software Cyrillic: first, the library looks for the same characters in the table from the display memory (for example, Russian B is English B), if it finds - prints it. If it does not find it, it looks in the register of current custom symbols. If it finds - outputs it, if it does not find - searches the bitmap in the table, downloads it, stores it in the registry and displays:
+
+- By default, all 8 slots for custom symbols are used. To use this version together with your custom symbols, you need to "limit" the library with the help of`setGlyphSlots(N)`It uses cells from 0 to a set limit (minus one)
+- The number of slots determines how many unique UTF-8 characters that do not match English can be on the display at the same time. When used above the current limit, the oldest characters will be rewritten, and if they are displayed at this point, they will change to new ones.
 
 ```cpp
-lcd.setGlyphSlots(6);    // UTF-8 uses 0..5, 6..7 slots are free to createChar
-lcd.print("Привет 23°C");
+lcd.setGlyphSlots(6);
+// UTF-8 uses 0.. 5
+// 6..7 slots are free to createChar
 ```
 
 If the occupied UTF-8 slots are changed manually`createChar()`After that, you need to call`resetGlyphs()`.
 
+By default,`GyverLCD_UTF8`**Cyrillic support (RU+BY+UKR) + degree symbol is connected, because this is the most common display:
+
+```cpp
+#include <GyverLCD_UTF8.h>
+GyverLCD_UTF8 lcd(0x27, 16, 2);
+// GyverLCD UTF8 lcd(0x27, 16, 2, GTABLE CYR SOFT) // so by default
+
+lcd.print("Привет 23°C");
+```
+
+For displays with **hardware** support for Cyrillic, you need to transfer the table`GTABLE_CYR_HARD`:
+
+```cpp
+GyverLCD_UTF8 lcd(0x27, 16, 2, GTABLE_CYR_HARD);
+```
+
+This table does not contain program symbols at all - all Cyrillic is displayed by the display, caste symbols are not used.
+
+## Setting up
 ### Pin map
 The setting of the sling is in the internal file`lcdpins.h`. All define is given by the **do* connection header GyverLCD.
 
