@@ -7,7 +7,8 @@
 template <typename LCD>
 class GyverLCD_UTF8_BASE : public LCD {
    public:
-    using LCD::LCD;
+    template <typename... Args>
+    GyverLCD_UTF8_BASE(glcd::GlyphTables glyphTables, Args&&... args) : LCD((Args&&)args...), _glyphTables(glyphTables) {}
 
     size_t write(uint8_t data) {
         // !! IMPORTANT !!
@@ -16,19 +17,20 @@ class GyverLCD_UTF8_BASE : public LCD {
         if (code < 0) return 1;
         if (code < 128) return LCD::write((uint8_t)code);
 
-        int16_t map = glcd::mapGlyph((uint16_t)code);
-        if (map > 0) return LCD::write((uint8_t)map);
-        if (!map) return 1;
+        glcd::GlyphRef glyph = glcd::findGlyph((uint16_t)code, _glyphTables);
+
+        if (glyph.code) return LCD::write(glyph.code);
+        if (!glyph.bitmap) return 1;
+        if (!_glyphSlots) return 1;
 
         for (uint8_t i = 0; i < _glyphSlots; ++i) {
             if (_chars[i] == (uint16_t)code) return LCD::write(i);
         }
-        if (!_glyphSlots) return 1;
 
         uint8_t slot = _idx;
-        uint8_t glyph = (uint8_t)(-map - 1);
-        LCD::createCharCols_P(slot, glcd::getGlyph(glyph));
+        LCD::createCharCols_P(slot, glyph.bitmap);
         _chars[slot] = (uint16_t)code;
+
         if (++_idx >= _glyphSlots) _idx = 0;
         return LCD::write(slot);
     }
@@ -84,15 +86,28 @@ class GyverLCD_UTF8_BASE : public LCD {
     }
 
    private:
+    glcd::GlyphTables _glyphTables;
     glcd::UTFDecoder2 _decoder;
     uint16_t _chars[8] = {};
-    uint8_t _idx = 0;
     uint8_t _glyphSlots = 8;
+    uint8_t _idx = 0;
 };
 
 // MARK: GyverLCD_UTF8
-using GyverLCD_UTF8 = GyverLCD_Print<GyverLCD_UTF8_BASE<GyverLCD_CORE>>;
+class GyverLCD_UTF8 : public GyverLCD_Print<GyverLCD_UTF8_BASE<GyverLCD_CORE>> {
+   public:
+    using Base = GyverLCD_Print<GyverLCD_UTF8_BASE<GyverLCD_CORE>>;
+
+    GyverLCD_UTF8(uint8_t address, uint8_t cols, uint8_t rows, glcd::GlyphTables glyphTables = GTABLE_CYR_SOFT)
+        : Base(glyphTables, address, cols, rows) {}
+};
 
 // MARK: GyverLCD_UTF8_EXT
 template <typename WireT>
-using GyverLCD_UTF8_EXT = GyverLCD_Print<GyverLCD_UTF8_BASE<GyverLCD_CORE_EXT<WireT>>>;
+class GyverLCD_UTF8_EXT : public GyverLCD_Print<GyverLCD_UTF8_BASE<GyverLCD_CORE_EXT<WireT>>> {
+   public:
+    using Base = GyverLCD_Print<GyverLCD_UTF8_BASE<GyverLCD_CORE_EXT<WireT>>>;
+
+    GyverLCD_UTF8_EXT(WireT& wire, uint8_t address, uint8_t cols, uint8_t rows, glcd::GlyphTables glyphTables = GTABLE_CYR_SOFT)
+        : Base(glyphTables, wire, address, cols, rows) {}
+};

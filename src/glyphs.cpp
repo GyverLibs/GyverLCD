@@ -2,18 +2,55 @@
 
 namespace glcd {
 
-struct BitmapGlyph {
-    char16_t code;
-    uint8_t bitmap[5];
+// ================ FUNC ================
+GlyphRef findGlyph(uint16_t code, GlyphTables tables) {
+    for (const RomGlyph* glyph = tables.rom; glyph; ++glyph) {
+        uint16_t utf = pgm_read_word(&glyph->utf);
+        if (utf == code) return {nullptr, pgm_read_byte(&glyph->code)};
+        if (!utf) break;
+    }
+
+    for (const BitmapGlyph* glyph = tables.bitmap; glyph; ++glyph) {
+        uint16_t utf = pgm_read_word(&glyph->utf);
+        if (utf == code) return {glyph->bitmap, 0};
+        if (!utf) break;
+    }
+
+    return {nullptr, 0};
+}
+
+}  // namespace glcd
+
+// ================ SOFT CYRILLIC ================
+static const glcd::RomGlyph rom_cyr_soft[] PROGMEM = {
+    {u'А', 'A'},
+    {u'В', 'B'},
+    {u'Е', 'E'},
+    {u'З', '3'},
+    {u'К', 'K'},
+    {u'М', 'M'},
+    {u'Н', 'H'},
+    {u'О', 'O'},
+    {u'Р', 'P'},
+    {u'С', 'C'},
+    {u'Т', 'T'},
+    {u'Х', 'X'},
+    {u'а', 'a'},
+    {u'е', 'e'},
+    {u'к', 'k'},
+    {u'м', 'm'},
+    {u'о', 'o'},
+    {u'р', 'p'},
+    {u'с', 'c'},
+    {u'у', 'y'},
+    {u'х', 'x'},
+    {u'І', 'I'},
+    {u'і', 'i'},
+    {u'°', 0xDF},
+    {0, 0},  // null-terminated
 };
 
-struct SameGlyph {
-    char16_t utf;
-    uint8_t code;
-};
-
-// ================ UTF GLYPHS ================
-static const BitmapGlyph glyphs[] PROGMEM = {
+static const glcd::BitmapGlyph map_cyr_soft[] PROGMEM = {
     {u'Б', {0x7f, 0x49, 0x49, 0x49, 0x31}},
     {u'Г', {0x7f, 0x01, 0x01, 0x01, 0x01}},
     {u'Д', {0xe0, 0x51, 0x4f, 0x41, 0xff}},
@@ -67,59 +104,89 @@ static const BitmapGlyph glyphs[] PROGMEM = {
     {u'ї', {0x00, 0x45, 0x7c, 0x41, 0x00}},
     {u'ў', {0x0c, 0x51, 0x52, 0x51, 0x3c}},
     {u'ґ', {0x7c, 0x04, 0x04, 0x04, 0x02}},
+    {0, {}},  // null-terminated
 };
 
-// ================ SAME GLYPHS ================
-static const SameGlyph sameGlyphs[] PROGMEM = {
+const glcd::GlyphTables GTABLE_CYR_SOFT = {
+    rom_cyr_soft,
+    map_cyr_soft,
+};
+
+// ================ HARD CYRILLIC ================
+static const glcd::RomGlyph rom_cyr_hard[] PROGMEM = {
     {u'А', 'A'},
+    {u'Б', 0xA0},
     {u'В', 'B'},
+    {u'Г', 0xA1},
+    {u'Д', 0xE0},
     {u'Е', 'E'},
-    {u'З', '3'},
+    {u'Ё', 0xA2},
+    {u'Ж', 0xA3},
+    {u'З', 0xA4},
+    {u'И', 0xA5},
+    {u'Й', 0xA6},
     {u'К', 'K'},
+    {u'Л', 0xA7},
     {u'М', 'M'},
     {u'Н', 'H'},
     {u'О', 'O'},
+    {u'П', 0xA8},
     {u'Р', 'P'},
     {u'С', 'C'},
     {u'Т', 'T'},
+    {u'У', 0xA9},
+    {u'Ф', 0xAA},
     {u'Х', 'X'},
+    {u'Ц', 0xE1},
+    {u'Ч', 0xAB},
+    {u'Ш', 0xAC},
+    {u'Щ', 0xE2},
+    {u'Ъ', 0xAD},
+    {u'Ы', 0xAE},
+    {u'Ь', 'b'},
+    {u'Э', 0xAF},
+    {u'Ю', 0xB0},
+    {u'Я', 0xB1},
+
     {u'а', 'a'},
+    {u'б', 0xB2},
+    {u'в', 0xB3},
+    {u'г', 0xB4},
+    {u'д', 0xE3},
     {u'е', 'e'},
-    {u'к', 'k'},
-    {u'м', 'm'},
+    {u'ё', 0xB5},
+    {u'ж', 0xB6},
+    {u'з', 0xB7},
+    {u'и', 0xB8},
+    {u'й', 0xB9},
+    {u'к', 0xBA},
+    {u'л', 0xBB},
+    {u'м', 0xBC},
+    {u'н', 0xBD},
     {u'о', 'o'},
+    {u'п', 0xBE},
     {u'р', 'p'},
     {u'с', 'c'},
+    {u'т', 0xBF},
     {u'у', 'y'},
+    {u'ф', 0xE4},
     {u'х', 'x'},
-    {u'І', 'I'},
-    {u'і', 'i'},
+    {u'ц', 0xE5},
+    {u'ч', 0xC0},
+    {u'ш', 0xC1},
+    {u'щ', 0xE6},
+    {u'ъ', 0xC2},
+    {u'ы', 0xC3},
+    {u'ь', 0xC4},
+    {u'э', 0xC5},
+    {u'ю', 0xC6},
+    {u'я', 0xC7},
+
     {u'°', 0xDF},
+    {0, 0},  // null-terminated
 };
 
-static constexpr uint8_t GLYPH_COUNT = sizeof(glyphs) / sizeof(glyphs[0]);
-static constexpr uint8_t SAME_GLYPH_COUNT = sizeof(sameGlyphs) / sizeof(sameGlyphs[0]);
-
-// ================ FUNC ================
-int16_t mapGlyph(uint16_t code) {
-    for (uint8_t i = 0; i < SAME_GLYPH_COUNT; ++i) {
-        if (pgm_read_word(&sameGlyphs[i].utf) == code) {
-            return pgm_read_byte(&sameGlyphs[i].code);
-        }
-    }
-
-    for (uint8_t i = 0; i < GLYPH_COUNT; ++i) {
-        if (pgm_read_word(&glyphs[i].code) == code) {
-            return -(int16_t)(i + 1);
-        }
-    }
-
-    return 0;
-}
-
-const uint8_t* getGlyph(uint8_t index) {
-    if (index >= GLYPH_COUNT) return nullptr;
-    return glyphs[index].bitmap;
-}
-
-}  // namespace glcd
+const glcd::GlyphTables GTABLE_CYR_HARD = {
+    rom_cyr_hard,
+    nullptr,
+};
