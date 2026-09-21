@@ -2,6 +2,17 @@
 
 GyverLCD lcd(0x27, 16, 2);
 
+// встроенный 64-бит редактор
+uint64_t smile64 = glcd::glyph64(
+    0b00000,
+    0b00000,
+    0b01010,
+    0b01010,
+    0b00000,
+    0b10001,
+    0b01110,
+    0b00000);
+
 void setup() {
     Wire.begin();
     lcd.begin();
@@ -19,13 +30,13 @@ void setup() {
     lcd.write(1);
 
     // можно сохранить и использовать по имени
-    // const uint64_t square = 0x40a110a0400;
-    // lcd.createChar(1, square);
+    lcd.createChar(2, smile64);
+    lcd.write(2);
 
     // 3. компактный вариант - 5 байт столбцами (удобно для хранения в таблицах шрифтов)
     const uint8_t spiral[5] = {0x7d, 0x45, 0x5d, 0x41, 0x7f};
-    lcd.createCharCols(2, spiral);
-    lcd.write(2);
+    lcd.createCharCols(3, spiral);
+    lcd.write(3);
 }
 
 void loop() {

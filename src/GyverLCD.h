@@ -2,6 +2,7 @@
 #include <Wire.h>
 
 #include "GyverLCD_CORE.h"
+#include "glyph64.h"
 #include "lcdprint.h"
 
 // стандартный Wire без Arduino Print
