@@ -131,6 +131,11 @@ void resetGlyphs();                                       // сбросить к
 void setGlyphSlots(uint8_t slots);                        // выделить UTF-8 0..8 слотов CGRAM
 uint8_t glyphSlots() const;                               // количество слотов UTF-8
 ```
+```cpp
+// доп. функции для кастомных 64-бит символов
+uint64_t glyph64(r0, r1, r2, r3, r4, r5, r6, r7);
+void glyph64Bit(uint64_t& glyph, uint8_t x, uint8_t y, bool value);
+```
 
 ## Работа
 ### Текст и строки
@@ -185,6 +190,20 @@ lcd.createChar(0, smile);
 
 > [!TIP]
 > В библиотеке в папке utils имеется встроенная утилита для генерации кастомных символов с выводом во все форматы, также она доступна онлайн [по ссылке](https://gyverlibs.github.io/GyverLCD/utils/IconEditor.html)
+
+Также есть простенький пиксельный редактор для автоматизированного создания иконок - `glcd::glyphBit`:
+
+```cpp
+uint64_t icon = 0;
+
+for (uint8_t i = 0; i < 5; ++i) {
+    glcd::glyphBit(icon, i, i + 1, true);
+    glcd::glyphBit(icon, 4 - i, i + 1, true);
+}
+
+lcd.createChar(0, icon);
+lcd.write(0);
+```
 
 ### UTF-8
 Библиотека декодирует 1- и 2-байтные UTF-8 символы из обычных строк и поддерживает вывод кириллицы и других языков, для этого есть 2 механизма и типа таблиц:

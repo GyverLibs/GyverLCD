@@ -14,4 +14,13 @@ constexpr uint64_t glyph64(uint8_t r0, uint8_t r1, uint8_t r2, uint8_t r3, uint8
            ((uint64_t)r7 << 56);
 }
 
+inline void glyph64Bit(uint64_t& glyph, uint8_t x, uint8_t y, bool value) {
+    if (x >= 5 || y >= 8) return;
+
+    uint8_t bit = y * 8 + (4 - x);
+
+    if (value) glyph |= (uint64_t)1 << bit;
+    else glyph &= ~((uint64_t)1 << bit);
+}
+
 }  // namespace glcd
